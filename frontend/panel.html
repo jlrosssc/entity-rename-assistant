@@ -449,15 +449,37 @@
 <script>
   // ── Helpers ────────────────────────────────────────────────────────────────
 
+  function findAccessToken(value) {
+    if (!value || typeof value !== 'object') return null;
+    if (typeof value.access_token === 'string' && value.access_token) {
+      return value.access_token;
+    }
+    for (const child of Object.values(value)) {
+      const token = findAccessToken(child);
+      if (token) return token;
+    }
+    return null;
+  }
+
   function getToken() {
-    // HA stores the auth token in localStorage under hassTokens
+    // HA stores auth data in localStorage, but the nesting varies by frontend version.
     try {
       const raw = localStorage.getItem('hassTokens');
       if (!raw) return null;
-      const obj = JSON.parse(raw);
-      const key = Object.keys(obj)[0];
-      return obj[key]?.access_token || null;
+      return findAccessToken(JSON.parse(raw));
     } catch { return null; }
+  }
+
+  async function readApiJson(res) {
+    const text = await res.text();
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      throw new Error(`${res.status} ${res.statusText}: ${text.slice(0, 160) || 'non-JSON response'}`);
+    }
+    if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+    return data;
   }
 
   function setStatus(type, msg, spinner = false) {
@@ -529,8 +551,7 @@
         },
         body: JSON.stringify({ entity_id: oldId }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      const data = await readApiJson(res);
       lastScanData = data;
       renderScanResults(data);
     } catch (err) {
@@ -638,8 +659,7 @@
           rename_in_registry: renameRegistry,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      const data = await readApiJson(res);
       renderApplyResult(data, oldId, newId);
     } catch (err) {
       setStatus('error', `Apply failed: ${err.message}`);
