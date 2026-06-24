@@ -1,0 +1,12 @@
+{
+  "domain": "entity_rename_assistant",
+  "name": "Entity Rename Assistant",
+  "version": "1.0.0",
+  "documentation": "https://github.com/jlrosssc/ha-entity-rename-assistant",
+  "issue_tracker": "https://github.com/jlrosssc/ha-entity-rename-assistant/issues",
+  "dependencies": [],
+  "codeowners": ["@jlrosssc"],
+  "requirements": [],
+  "iot_class": "local_push",
+  "hacs": "1.0.0"
+}

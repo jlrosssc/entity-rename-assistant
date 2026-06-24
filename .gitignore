@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+*.bak*
+*.logic-bak-*
+*.compat-bak-*
+*.cache-bust-bak-*
+.DS_Store
+

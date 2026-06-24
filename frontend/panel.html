@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Entity Rename Assistant</title>
+  <style>
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --surface2:  #22263a;
+      --border:    #2e3348;
+      --accent:    #5b8af5;
+      --accent-dk: #3a64d8;
+      --warn:      #e8a838;
+      --danger:    #e05c5c;
+      --success:   #4ec994;
+      --text:      #e4e6f0;
+      --text-dim:  #8b90a8;
+      --mono:      'JetBrains Mono', 'Fira Mono', 'Courier New', monospace;
+      --radius:    10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+      padding: 0 0 60px;
+    }
+
+    /* ── Header ───────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    header svg { flex-shrink: 0; }
+    header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    header p {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────── */
+    main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Card ─────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+    }
+    .card-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+    }
+
+    /* ── Form ─────────────────────────────────────────────────── */
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 520px) {
+      .field-row { grid-template-columns: 1fr; }
+    }
+    .field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+    .field input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .field input:focus {
+      border-color: var(--accent);
+    }
+    .field input.error {
+      border-color: var(--danger);
+    }
+
+    .registry-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+    .registry-row input[type=checkbox] {
+      accent-color: var(--accent);
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
+
+    /* ── Buttons ──────────────────────────────────────────────── */
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    button {
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 20px;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-scan {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-scan:hover:not(:disabled) { background: var(--accent-dk); }
+
+    .btn-apply {
+      background: var(--success);
+      color: #0a1a12;
+    }
+    .btn-apply:hover:not(:disabled) { opacity: 0.85; }
+    .btn-apply.hidden { display: none; }
+
+    .btn-clear {
+      background: var(--surface2);
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+    }
+    .btn-clear:hover:not(:disabled) { color: var(--text); }
+
+    /* ── Status bar ───────────────────────────────────────────── */
+    #status {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    #status.info    { display: flex; background: rgba(91,138,245,.15); border: 1px solid rgba(91,138,245,.3); color: var(--accent); }
+    #status.success { display: flex; background: rgba(78,201,148,.15); border: 1px solid rgba(78,201,148,.3); color: var(--success); }
+    #status.warn    { display: flex; background: rgba(232,168,56,.15);  border: 1px solid rgba(232,168,56,.3);  color: var(--warn); }
+    #status.error   { display: flex; background: rgba(224,92,92,.15);   border: 1px solid rgba(224,92,92,.3);   color: var(--danger); }
+
+    /* ── Spinner ──────────────────────────────────────────────── */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Results panel ────────────────────────────────────────── */
+    #results { display: none; }
+
+    .result-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .result-summary .pill {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .pill.green  { border-color: var(--success); color: var(--success); }
+    .pill.yellow { border-color: var(--warn);    color: var(--warn); }
+    .pill.blue   { border-color: var(--accent);  color: var(--accent); }
+
+    /* ── File groups ──────────────────────────────────────────── */
+    .file-group {
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .file-header {
+      background: var(--surface2);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .file-header .file-name {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text);
+    }
+    .file-header .ref-count {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--warn);
+      background: rgba(232,168,56,.12);
+      border: 1px solid rgba(232,168,56,.25);
+      border-radius: 10px;
+      padding: 2px 8px;
+    }
+    .file-type-badge {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      background: var(--bg);
+      border-radius: 4px;
+      padding: 2px 6px;
+      margin-right: 8px;
+    }
+
+    .ref-list { padding: 0; }
+    .ref-item {
+      display: grid;
+      grid-template-columns: 52px 1fr;
+      gap: 0;
+      border-top: 1px solid var(--border);
+    }
+    .ref-line {
+      background: var(--bg);
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 8px 10px;
+      text-align: right;
+      border-right: 1px solid var(--border);
+      user-select: none;
+    }
+    .ref-preview {
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 8px 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: var(--text);
+    }
+    .ref-preview mark {
+      background: rgba(91,138,245,.3);
+      color: var(--accent);
+      border-radius: 3px;
+      padding: 0 2px;
+    }
+    .ref-context {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    /* ── Registry badge ───────────────────────────────────────── */
+    .registry-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+    }
+    .registry-badge.found    { background: rgba(78,201,148,.1);  border: 1px solid rgba(78,201,148,.3); color: var(--success); }
+    .registry-badge.missing  { background: rgba(232,168,56,.1);  border: 1px solid rgba(232,168,56,.3);  color: var(--warn); }
+
+    /* ── Apply result ─────────────────────────────────────────── */
+    #apply-result { display: none; }
+    .apply-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .stat-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .stat-box .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .stat-box .stat-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+    .backup-path {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      word-break: break-all;
+    }
+    .backup-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      margin-top: 14px;
+    }
+    .error-list {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: rgba(224,92,92,.08);
+      border: 1px solid rgba(224,92,92,.25);
+      border-radius: 6px;
+    }
+    .error-list li {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--danger);
+      margin-left: 14px;
+    }
+
+    /* ── Warning banner ───────────────────────────────────────── */
+    .warn-banner {
+      background: rgba(232,168,56,.08);
+      border: 1px solid rgba(232,168,56,.25);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 12px;
+      color: var(--warn);
+      line-height: 1.6;
+    }
+    .warn-banner strong { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+    <rect width="32" height="32" rx="8" fill="#5b8af5" fill-opacity="0.15"/>
+    <path d="M8 10h10M8 16h7M8 22h9" stroke="#5b8af5" stroke-width="2" stroke-linecap="round"/>
+    <path d="M20 18l3 3-3 3" stroke="#4ec994" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M23 21h-4" stroke="#4ec994" stroke-width="2" stroke-linecap="round"/>
+  </svg>
+  <div>
+    <h1>Entity Rename Assistant</h1>
+    <p>Scan and replace entity ID references across all YAML and .storage files</p>
+  </div>
+</header>
+
+<main>
+
+  <!-- Input card -->
+  <div class="card">
+    <div class="card-title">Entity IDs</div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Current Entity ID</label>
+        <input id="old-id" type="text" placeholder="switch.den" spellcheck="false" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>New Entity ID</label>
+        <input id="new-id" type="text" placeholder="switch.new_den" spellcheck="false" autocomplete="off" />
+      </div>
+    </div>
+
+    <div class="registry-row">
+      <input type="checkbox" id="rename-registry" checked />
+      <label for="rename-registry">Also rename in the Entity Registry (updates HA's internal record)</label>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-scan" id="btn-scan" onclick="doScan()">🔍 Dry Run — Find References</button>
+      <button class="btn-apply hidden" id="btn-apply" onclick="doApply()">✅ Apply Rename</button>
+      <button class="btn-clear" onclick="doClear()">Clear</button>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div id="status"></div>
+
+  <!-- Scan results -->
+  <div id="results" class="card">
+    <div class="card-title">Scan Results</div>
+    <div id="results-inner"></div>
+  </div>
+
+  <!-- Apply results -->
+  <div id="apply-result" class="card">
+    <div class="card-title">Rename Complete</div>
+    <div id="apply-inner"></div>
+  </div>
+
+  <!-- Warning -->
+  <div class="warn-banner">
+    <strong>⚠️ Before applying:</strong> A timestamped backup of every modified file is created automatically
+    under <code>config/entity_rename_assistant_backups/</code>.
+    HA will need a <strong>restart</strong> (or relevant component reload) after the rename is applied.
+    Entity history in the recorder database is <em>not</em> migrated — this tool handles config files only.
+  </div>
+
+</main>
+
+<script>
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  function getToken() {
+    // HA stores the auth token in localStorage under hassTokens
+    try {
+      const raw = localStorage.getItem('hassTokens');
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      const key = Object.keys(obj)[0];
+      return obj[key]?.access_token || null;
+    } catch { return null; }
+  }
+
+  function setStatus(type, msg, spinner = false) {
+    const el = document.getElementById('status');
+    el.className = type;
+    el.innerHTML = (spinner ? '<div class="spinner"></div>' : '') + `<span>${msg}</span>`;
+  }
+
+  function clearStatus() {
+    const el = document.getElementById('status');
+    el.className = '';
+    el.innerHTML = '';
+  }
+
+  function validateInputs() {
+    const old = document.getElementById('old-id').value.trim();
+    const nw  = document.getElementById('new-id').value.trim();
+    const re  = /^[a-z0-9_]+\.[a-z0-9_]+$/;
+    let ok = true;
+    if (!re.test(old)) {
+      document.getElementById('old-id').classList.add('error');
+      ok = false;
+    } else {
+      document.getElementById('old-id').classList.remove('error');
+    }
+    if (!re.test(nw)) {
+      document.getElementById('new-id').classList.add('error');
+      ok = false;
+    } else {
+      document.getElementById('new-id').classList.remove('error');
+    }
+    if (!ok) setStatus('error', 'Entity IDs must be in the format <code>domain.object_id</code>');
+    return ok;
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function highlightId(text, entityId) {
+    const esc = entityId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re  = new RegExp(`(?<![a-zA-Z0-9_])(${esc})(?![a-zA-Z0-9_])`, 'g');
+    return escapeHtml(text).replace(re, '<mark>$1</mark>');
+  }
+
+  // ── Scan ───────────────────────────────────────────────────────────────────
+
+  let lastScanData = null;
+
+  async function doScan() {
+    if (!validateInputs()) return;
+    const oldId = document.getElementById('old-id').value.trim();
+    const token = getToken();
+
+    document.getElementById('results').style.display = 'none';
+    document.getElementById('apply-result').style.display = 'none';
+    document.getElementById('btn-apply').classList.add('hidden');
+    setStatus('info', `Scanning for <strong>${escapeHtml(oldId)}</strong>…`, true);
+    document.getElementById('btn-scan').disabled = true;
+
+    try {
+      const res = await fetch('/api/entity_rename_assistant/scan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ entity_id: oldId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      lastScanData = data;
+      renderScanResults(data);
+    } catch (err) {
+      setStatus('error', `Scan failed: ${err.message}`);
+    } finally {
+      document.getElementById('btn-scan').disabled = false;
+    }
+  }
+
+  function renderScanResults(data) {
+    const oldId = data.entity_id;
+    const count = data.total_references;
+
+    if (count === 0) {
+      setStatus('warn', `No references found for <strong>${escapeHtml(oldId)}</strong> in any config file.`);
+      document.getElementById('results').style.display = 'none';
+      return;
+    }
+
+    setStatus('success', `Found <strong>${count}</strong> reference${count !== 1 ? 's' : ''} to <strong>${escapeHtml(oldId)}</strong>. Review below, then click Apply.`);
+
+    // Group references by file
+    const byFile = {};
+    for (const ref of data.references) {
+      if (!byFile[ref.file_path]) byFile[ref.file_path] = { type: ref.file_type, context: ref.context, refs: [] };
+      byFile[ref.file_path].refs.push(ref);
+    }
+
+    let html = '';
+
+    // Registry badge
+    const regFound = data.in_entity_registry;
+    html += `<div class="registry-badge ${regFound ? 'found' : 'missing'}">
+      ${regFound ? '✓' : '⚠'} Entity ${regFound ? 'found' : 'NOT found'} in the Entity Registry
+    </div>`;
+
+    // Summary pills
+    const yamlFiles  = Object.values(byFile).filter(g => g.type === 'yaml').length;
+    const storageFiles = Object.values(byFile).filter(g => g.type === 'storage').length;
+    html += `<div class="result-summary">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span class="pill yellow">${count} reference${count !== 1 ? 's' : ''}</span>
+        ${yamlFiles   ? `<span class="pill blue">${yamlFiles} YAML file${yamlFiles !== 1 ? 's' : ''}</span>` : ''}
+        ${storageFiles ? `<span class="pill blue">${storageFiles} .storage file${storageFiles !== 1 ? 's' : ''}</span>` : ''}
+      </div>
+    </div>`;
+
+    // File groups
+    for (const [filePath, group] of Object.entries(byFile)) {
+      const typeBadge = group.type === 'storage' ? 'STORAGE' : 'YAML';
+      const contextNote = group.context ? ` — ${escapeHtml(group.context)}` : '';
+      html += `<div class="file-group">
+        <div class="file-header">
+          <div>
+            <span class="file-type-badge">${typeBadge}</span>
+            <span class="file-name">${escapeHtml(filePath)}</span>
+            <span style="color:var(--text-dim);font-size:11px">${contextNote}</span>
+          </div>
+          <span class="ref-count">${group.refs.length}</span>
+        </div>
+        <div class="ref-list">`;
+
+      for (const ref of group.refs) {
+        const lineLabel = ref.line_number != null ? `L${ref.line_number}` : '—';
+        html += `<div class="ref-item">
+          <div class="ref-line">${lineLabel}</div>
+          <div class="ref-preview">${highlightId(ref.line_preview, oldId)}${ref.context && group.type === 'storage' ? `<div class="ref-context">${escapeHtml(ref.context)}</div>` : ''}</div>
+        </div>`;
+      }
+
+      html += `</div></div>`;
+    }
+
+    const inner = document.getElementById('results-inner');
+    inner.innerHTML = html;
+    document.getElementById('results').style.display = 'block';
+    document.getElementById('btn-apply').classList.remove('hidden');
+  }
+
+  // ── Apply ──────────────────────────────────────────────────────────────────
+
+  async function doApply() {
+    if (!validateInputs()) return;
+    const oldId = document.getElementById('old-id').value.trim();
+    const newId = document.getElementById('new-id').value.trim();
+    const renameRegistry = document.getElementById('rename-registry').checked;
+    const token = getToken();
+
+    if (!confirm(`Apply rename?\n\n${oldId}  →  ${newId}\n\nAll matched files will be modified. Backups are created automatically.`)) return;
+
+    setStatus('info', `Applying rename <strong>${escapeHtml(oldId)}</strong> → <strong>${escapeHtml(newId)}</strong>…`, true);
+    document.getElementById('btn-apply').disabled = true;
+    document.getElementById('btn-scan').disabled = true;
+
+    try {
+      const res = await fetch('/api/entity_rename_assistant/apply', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          old_entity_id: oldId,
+          new_entity_id: newId,
+          rename_in_registry: renameRegistry,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      renderApplyResult(data, oldId, newId);
+    } catch (err) {
+      setStatus('error', `Apply failed: ${err.message}`);
+    } finally {
+      document.getElementById('btn-apply').disabled = false;
+      document.getElementById('btn-scan').disabled = false;
+    }
+  }
+
+  function renderApplyResult(data, oldId, newId) {
+    const errCount = (data.errors || []).length;
+    if (errCount > 0) {
+      setStatus('warn', `Rename completed with ${errCount} error${errCount !== 1 ? 's' : ''} — see details below.`);
+    } else {
+      setStatus('success', `Rename applied successfully. <strong>Restart HA</strong> (or reload affected components) to pick up the changes.`);
+    }
+
+    const reg = data.registry_rename;
+    const regNote = reg
+      ? (reg.success ? '✓ Entity Registry updated' : `⚠ Registry: ${escapeHtml(reg.reason)}`)
+      : '';
+
+    let html = `
+      <div class="apply-stats">
+        <div class="stat-box">
+          <div class="stat-value">${data.replacements_made}</div>
+          <div class="stat-label">Total replacements</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value">${data.files_changed.length}</div>
+          <div class="stat-label">Files modified</div>
+        </div>
+        ${reg ? `<div class="stat-box">
+          <div class="stat-value" style="font-size:14px;color:${reg.success ? 'var(--success)':'var(--warn)'}">${reg.success ? '✓' : '⚠'}</div>
+          <div class="stat-label">${escapeHtml(regNote)}</div>
+        </div>` : ''}
+      </div>`;
+
+    if (data.files_changed.length > 0) {
+      html += `<div style="font-size:12px;color:var(--text-dim);margin-bottom:8px">Modified files:</div>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:4px">
+          ${data.files_changed.map(f => `<li style="font-family:var(--mono);font-size:11px;color:var(--text)">${escapeHtml(f)}</li>`).join('')}
+        </ul>`;
+    }
+
+    html += `<div class="backup-label">📦 Backup location:</div>
+      <div class="backup-path">${escapeHtml(data.backup_dir)}</div>`;
+
+    if (errCount > 0) {
+      html += `<ul class="error-list">${data.errors.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul>`;
+    }
+
+    document.getElementById('apply-inner').innerHTML = html;
+    document.getElementById('apply-result').style.display = 'block';
+    document.getElementById('results').style.display = 'none';
+    document.getElementById('btn-apply').classList.add('hidden');
+  }
+
+  // ── Clear ──────────────────────────────────────────────────────────────────
+
+  function doClear() {
+    document.getElementById('old-id').value = '';
+    document.getElementById('new-id').value = '';
+    document.getElementById('old-id').classList.remove('error');
+    document.getElementById('new-id').classList.remove('error');
+    document.getElementById('results').style.display = 'none';
+    document.getElementById('apply-result').style.display = 'none';
+    document.getElementById('btn-apply').classList.add('hidden');
+    clearStatus();
+    lastScanData = null;
+  }
+
+  // ── Enter key ──────────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    ['old-id','new-id'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', e => {
+        if (e.key === 'Enter') doScan();
+      });
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+scan:
+  name: Scan entity references
+  description: Find references to an entity ID in YAML and selected .storage files.
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+
+apply:
+  name: Apply entity rename
+  description: Replace references to an entity ID and optionally rename the entity registry entry.
+  fields:
+    old_entity_id:
+      required: true
+      selector:
+        entity:
+    new_entity_id:
+      required: true
+      selector:
+        text:
+    rename_in_registry:
+      required: false
+      default: true
+      selector:
+        boolean:
