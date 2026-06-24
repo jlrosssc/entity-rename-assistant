@@ -401,7 +401,8 @@
     <div class="field-row">
       <div class="field">
         <label>Current Entity ID</label>
-        <input id="old-id" type="text" placeholder="switch.den" spellcheck="false" autocomplete="off" />
+        <input id="old-id" type="text" list="entity-id-options" placeholder="switch.den" spellcheck="false" autocomplete="off" />
+        <datalist id="entity-id-options"></datalist>
       </div>
       <div class="field">
         <label>New Entity ID</label>
@@ -481,6 +482,36 @@
     if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
     return data;
   }
+
+  async function loadEntityOptions() {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const res = await fetch('/api/states', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const states = await readApiJson(res);
+      const list = document.getElementById('entity-id-options');
+      if (!list || !Array.isArray(states)) return;
+      const options = states
+        .map((s) => ({
+          id: s.entity_id,
+          name: s.attributes?.friendly_name || '',
+        }))
+        .filter((s) => s.id)
+        .sort((a, b) => a.id.localeCompare(b.id));
+      list.innerHTML = options
+        .map((s) => {
+          const label = s.name && s.name !== s.id ? ` label="${escapeHtml(s.name)}"` : '';
+          return `<option value="${escapeHtml(s.id)}"${label}></option>`;
+        })
+        .join('');
+    } catch (err) {
+      console.warn('Entity Rename Assistant: failed to load entity options', err);
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', loadEntityOptions);
 
   function setStatus(type, msg, spinner = false) {
     const el = document.getElementById('status');

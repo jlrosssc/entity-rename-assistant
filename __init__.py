@@ -60,7 +60,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         sidebar_icon="mdi:rename-box",
         frontend_url_path="entity-rename-assistant",
         config={
-            "url": "/entity_rename_assistant_panel/panel.html",
+            "url": "/entity_rename_assistant_panel/panel.html?v=20260624-111735",
         },
         require_admin=True,
     )
